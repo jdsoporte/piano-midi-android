@@ -1,5 +1,5 @@
 name: Inspeccionar Salamander (solo lectura)
-# ejecucion 2
+# ejecucion 3
 on:
   push:
     branches: ['claude/**']
@@ -31,3 +31,16 @@ jobs:
           find . -name '*.flac' | wc -l; du -sh Samples 2>/dev/null || du -sh .
           echo "== ejemplos de nombres"; find . -name '*.flac' | sort | head -40
           echo "== primer FLAC"; f=$(find . -name '*.flac' | head -1); head -c 64 "$f" | xxd | head -4
+      - name: Mapeo de notas (Data) y resto del SFZ
+        working-directory: salamander
+        run: |
+          ls -la Data
+          echo "== SFZ líneas 84-120"; sed -n '84,120p' "Salamander Grand Piano V3.sfz"
+          echo "== notes.txt"; cat Data/notes.txt | head -120
+          echo "== tune_nat.txt (inicio)"; head -30 Data/tune_nat.txt
+          echo "== nombres que NO son NotaNvN"
+          find Samples -name '*.flac' -printf '%f\n' | grep -vE '^[A-G]#?[0-9]v[0-9]+\.flac$' | sort | head -80
+          echo "== notas distintas con velocidad"
+          find Samples -name '*v1.flac' -printf '%f\n' | sort | tr '\n' ' '
+          echo; echo "== propiedades del primer FLAC"
+          sudo apt-get install -y -qq flac >/dev/null 2>&1; metaflac --show-sample-rate --show-bps --show-channels --show-total-samples Samples/A0v1.flac Samples/C4v8.flac 2>&1 || true
