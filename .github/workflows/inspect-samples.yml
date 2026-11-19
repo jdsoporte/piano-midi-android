@@ -1,5 +1,5 @@
 name: Inspeccionar Salamander (solo lectura)
-# ejecucion 3
+# ejecucion 4
 on:
   push:
     branches: ['claude/**']
@@ -44,3 +44,14 @@ jobs:
           find Samples -name '*v1.flac' -printf '%f\n' | sort | tr '\n' ' '
           echo; echo "== propiedades del primer FLAC"
           sudo apt-get install -y -qq flac >/dev/null 2>&1; metaflac --show-sample-rate --show-bps --show-channels --show-total-samples Samples/A0v1.flac Samples/C4v8.flac 2>&1 || true
+      - name: Regiones exactas
+        working-directory: salamander
+        run: |
+          echo "== region.txt"; cat Data/region.txt
+          echo; echo "== vel_01.txt"; cat Data/vel_01.txt
+          echo; echo "== tune_nat.txt valores distintos de 0"; grep -v ' 0$' Data/tune_nat.txt | head
+          echo "== hammer.txt (inicio)"; head -25 Data/hammer.txt
+          echo "== pedal.txt"; cat Data/pedal.txt
+          echo "== str_res.txt (inicio)"; head -25 Data/str_res.txt
+          echo "== duraciones (muestras) algunas notas"
+          for f in A0v1 A0v16 C4v1 C4v16 C8v1 C8v16 rel1 rel15 harmLA0 pedalD1 pedalU1; do echo -n "$f: "; metaflac --show-total-samples --show-bps --show-channels Samples/$f.flac | tr '\n' ' '; echo; done
