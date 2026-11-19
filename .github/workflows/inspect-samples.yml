@@ -1,0 +1,32 @@
+name: Inspeccionar Salamander (solo lectura)
+on:
+  push:
+    branches: ['claude/**']
+    paths: ['.github/workflows/inspect-samples.yml']
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clonar Salamander (público)
+        run: |
+          git lfs install || true
+          git clone --depth 1 https://github.com/sfzinstruments/SalamanderGrandPiano salamander
+          cd salamander && ls -la && cat .gitattributes && git lfs ls-files | head -5 || true
+      - name: Resumen del SFZ
+        working-directory: salamander
+        run: |
+          f="Salamander Grand Piano V3.sfz"
+          echo "== tamaño sfz: $(wc -c < "$f") bytes, $(wc -l < "$f") líneas"
+          echo "== primeras 80 líneas"; head -80 "$f"
+          echo "== opcodes usados (conteo)"
+          grep -oE '[a-z_0-9]+=' "$f" | sort | uniq -c | sort -rn | head -60
+          echo "== <group> y <control> y <global> y <master>"
+          grep -nE '^<(control|global|master|group|curve)' "$f" | head -60
+      - name: Muestras
+        working-directory: salamander
+        run: |
+          echo "== carpetas"; find . -maxdepth 3 -type d | head -30
+          echo "== cantidad y tamaño de FLAC"
+          find . -name '*.flac' | wc -l; du -sh Samples 2>/dev/null || du -sh .
+          echo "== ejemplos de nombres"; find . -name '*.flac' | sort | head -40
+          echo "== primer FLAC"; f=$(find . -name '*.flac' | head -1); head -c 64 "$f" | xxd | head -4
