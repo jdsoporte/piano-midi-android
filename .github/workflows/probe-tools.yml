@@ -1,0 +1,21 @@
+name: Sondeo de herramientas (solo lectura)
+on:
+  push:
+    branches: ['claude/**']
+    paths: ['.github/workflows/probe-tools.yml']
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Versiones publicadas
+        run: |
+          show() { echo "== $1"; curl -sSL "$2" | grep -E '<release>|<latest>' ; curl -sSL "$2" | grep -oE '<version>[^<]+' | sed 's/<version>//' | tail -8 | tr '\n' ' '; echo; }
+          show AGP https://maven.google.com/com/android/tools/build/gradle/maven-metadata.xml
+          show Kotlin https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-gradle-plugin/maven-metadata.xml
+          show oboe https://maven.google.com/com/google/oboe/oboe/maven-metadata.xml
+          show core-ktx https://maven.google.com/androidx/core/core-ktx/maven-metadata.xml
+          show activity-compose https://maven.google.com/androidx/activity/activity-compose/maven-metadata.xml
+      - name: Entorno del runner
+        run: |
+          java -version 2>&1; gradle --version 2>&1 | head -5
+          echo "ANDROID_HOME=$ANDROID_HOME"; ls $ANDROID_HOME/platforms $ANDROID_HOME/build-tools $ANDROID_HOME/ndk $ANDROID_HOME/cmake 2>&1
