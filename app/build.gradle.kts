@@ -17,6 +17,13 @@ android {
         ndk {
             abiFilters += listOf("arm64-v8a", "armeabi-v7a")
         }
+
+        externalNativeBuild {
+            cmake {
+                // Oboe (prefab) exige la STL compartida.
+                arguments += "-DANDROID_STL=c++_shared"
+            }
+        }
     }
 
     buildFeatures {
