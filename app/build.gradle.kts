@@ -11,8 +11,8 @@ android {
         applicationId = "com.jdsoporte.pianomidi"
         minSdk = 26
         targetSdk = 36
-        versionCode = 2
-        versionName = "0.2-piano-B"
+        versionCode = 3
+        versionName = "0.3-piano-B-volumen"
 
         ndk {
             abiFilters += listOf("arm64-v8a", "armeabi-v7a")

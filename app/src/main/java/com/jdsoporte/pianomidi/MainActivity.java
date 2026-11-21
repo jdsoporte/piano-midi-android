@@ -30,6 +30,7 @@ public class MainActivity extends Activity {
 
     private static final int MAX_LINEAS = 25;
     private static final String VERSION_SONIDOS = "piano-v1";
+    private static final float VOLUMEN_MAXIMO = 3.0f; // ganancia con la barra al 100%
 
     private MidiManager midiManager;
     private final Handler ui = new Handler(Looper.getMainLooper());
@@ -64,20 +65,20 @@ public class MainActivity extends Activity {
         infoAudio = texto(raiz, 12, p / 4);
 
         TextView vol = texto(raiz, 14, p / 2);
-        vol.setText("Volumen");
+        vol.setText("Volumen del piano (si suena bajo, sube tambien el volumen multimedia del celular)");
         SeekBar barra = new SeekBar(this);
         barra.setMax(100);
-        barra.setProgress(80);
+        barra.setProgress(50);
         barra.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override
             public void onProgressChanged(SeekBar s, int v, boolean user) {
-                Native.nativeSetVolume(v / 100f);
+                Native.nativeSetVolume(v / 100f * VOLUMEN_MAXIMO);
             }
             @Override public void onStartTrackingTouch(SeekBar s) { }
             @Override public void onStopTrackingTouch(SeekBar s) { }
         });
         raiz.addView(barra);
-        Native.nativeSetVolume(0.8f);
+        Native.nativeSetVolume(0.5f * VOLUMEN_MAXIMO);
 
         scroll = new ScrollView(this);
         registro = new TextView(this);

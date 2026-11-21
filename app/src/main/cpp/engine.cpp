@@ -36,7 +36,9 @@ float releaseSeconds(int key) {
 }
 
 constexpr float kSilence = 1.0e-4f;  // -80 dB
-constexpr float kVoiceGain = 0.8f / 32768.f;
+// Las grabaciones de Salamander son suaves (capa baja de Do4: pico ~ -15 dBFS), por eso
+// no se atenuan aqui; el limitador suave de salida evita pasar de 1.0.
+constexpr float kVoiceGain = 1.0f / 32768.f;
 
 inline float softClip(float x) {
     const float knee = 0.8f;

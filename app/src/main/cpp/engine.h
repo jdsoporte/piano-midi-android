@@ -89,7 +89,7 @@ private:
 
     const SampleBank* bank_ = nullptr;
     float sampleRate_ = 48000.f;
-    std::atomic<float> volume_{0.8f};
+    std::atomic<float> volume_{1.5f};
 
     Voice voices_[kMaxVoices];
     bool pedalDown_ = false;
