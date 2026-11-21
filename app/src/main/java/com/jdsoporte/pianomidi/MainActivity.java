@@ -9,21 +9,27 @@ import android.media.midi.MidiReceiver;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
-import android.view.Gravity;
+import android.view.WindowManager;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
+import android.widget.SeekBar;
 import android.widget.TextView;
 
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Etapa 1: monitor MIDI. Lista los dispositivos MIDI conectados por USB
- * y muestra en pantalla los mensajes que envia el teclado (notas y pedal).
+ * Etapa 2: piano con sonido. Recibe MIDI por USB y lo reproduce con el motor nativo
+ * (muestras de Salamander Grand Piano V3).
  */
 public class MainActivity extends Activity {
 
-    private static final int MAX_LINEAS = 60;
+    private static final int MAX_LINEAS = 25;
+    private static final String VERSION_SONIDOS = "piano-v1";
 
     private MidiManager midiManager;
     private final Handler ui = new Handler(Looper.getMainLooper());
@@ -31,13 +37,17 @@ public class MainActivity extends Activity {
     private final List<MidiDevice> abiertos = new ArrayList<>();
     private final List<MidiOutputPort> puertos = new ArrayList<>();
 
-    private TextView estado;
+    private TextView estadoSonido;
+    private TextView estadoMidi;
+    private TextView infoAudio;
     private TextView registro;
     private ScrollView scroll;
+    private volatile boolean audioListo = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
         LinearLayout raiz = new LinearLayout(this);
         raiz.setOrientation(LinearLayout.VERTICAL);
@@ -45,72 +55,158 @@ public class MainActivity extends Activity {
         raiz.setPadding(p, p * 2, p, p);
 
         TextView titulo = new TextView(this);
-        titulo.setText("Piano MIDI - monitor (etapa 1)");
-        titulo.setTextSize(20);
-        titulo.setGravity(Gravity.START);
+        titulo.setText("Piano MIDI");
+        titulo.setTextSize(22);
         raiz.addView(titulo);
 
-        estado = new TextView(this);
-        estado.setTextSize(15);
-        estado.setPadding(0, p / 2, 0, p / 2);
-        raiz.addView(estado);
+        estadoSonido = texto(raiz, 15, p / 2);
+        estadoMidi = texto(raiz, 15, p / 4);
+        infoAudio = texto(raiz, 12, p / 4);
+
+        TextView vol = texto(raiz, 14, p / 2);
+        vol.setText("Volumen");
+        SeekBar barra = new SeekBar(this);
+        barra.setMax(100);
+        barra.setProgress(80);
+        barra.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            @Override
+            public void onProgressChanged(SeekBar s, int v, boolean user) {
+                Native.nativeSetVolume(v / 100f);
+            }
+            @Override public void onStartTrackingTouch(SeekBar s) { }
+            @Override public void onStopTrackingTouch(SeekBar s) { }
+        });
+        raiz.addView(barra);
+        Native.nativeSetVolume(0.8f);
 
         scroll = new ScrollView(this);
         registro = new TextView(this);
-        registro.setTextSize(14);
+        registro.setTextSize(13);
         registro.setTypeface(android.graphics.Typeface.MONOSPACE);
         scroll.addView(registro);
         raiz.addView(scroll, new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f));
 
+        TextView creditos = texto(raiz, 11, p / 2);
+        creditos.setText("Piano: Salamander Grand Piano V3 - grabaciones de Alexander Holm "
+                + "(CC BY 3.0, creativecommons.org/licenses/by/3.0)");
+
         setContentView(raiz);
+
+        estadoSonido.setText("Preparando sonidos...");
+        new Thread(this::iniciarSonido, "carga-sonido").start();
 
         midiManager = (MidiManager) getSystemService(MIDI_SERVICE);
         if (midiManager == null) {
-            estado.setText("Este telefono no soporta MIDI.");
+            estadoMidi.setText("Este telefono no soporta MIDI.");
             return;
         }
-
         midiManager.registerDeviceCallback(new MidiManager.DeviceCallback() {
             @Override
             public void onDeviceAdded(MidiDeviceInfo info) {
                 agregar("Conectado: " + nombre(info));
                 abrir(info);
-                actualizarEstado();
+                actualizarMidi();
             }
 
             @Override
             public void onDeviceRemoved(MidiDeviceInfo info) {
                 agregar("Desconectado: " + nombre(info));
-                actualizarEstado();
+                actualizarMidi();
             }
         }, ui);
-
         for (MidiDeviceInfo info : midiManager.getDevices()) {
-            agregar("Encontrado: " + nombre(info));
             abrir(info);
         }
-        actualizarEstado();
+        actualizarMidi();
     }
+
+    private TextView texto(LinearLayout padre, int sp, int top) {
+        TextView t = new TextView(this);
+        t.setTextSize(sp);
+        t.setPadding(0, top, 0, 0);
+        padre.addView(t);
+        return t;
+    }
+
+    // ---- Sonido -----------------------------------------------------------
+
+    private void iniciarSonido() {
+        try {
+            File dir = new File(getFilesDir(), "piano");
+            File marca = new File(dir, "ok-" + VERSION_SONIDOS);
+            if (!marca.exists()) {
+                copiarSonidos(dir);
+                if (!marca.createNewFile()) {
+                    throw new IllegalStateException("no se pudo guardar la marca");
+                }
+            }
+            ui.post(() -> estadoSonido.setText("Cargando piano en memoria..."));
+            int n = Native.nativeLoad(dir.getAbsolutePath());
+            if (n == 0) {
+                ui.post(() -> estadoSonido.setText("ERROR: no se encontraron sonidos."));
+                return;
+            }
+            if (!Native.nativeStart()) {
+                ui.post(() -> estadoSonido.setText("ERROR: no se pudo abrir el audio."));
+                return;
+            }
+            audioListo = true;
+            final int cargadas = n;
+            ui.post(() -> {
+                estadoSonido.setText("Piano listo (" + cargadas + " grabaciones). Toca el piano.");
+                infoAudio.setText(Native.nativeInfo());
+            });
+        } catch (Exception e) {
+            final String msg = e.toString();
+            ui.post(() -> estadoSonido.setText("ERROR: " + msg));
+        }
+    }
+
+    private void copiarSonidos(File dir) throws Exception {
+        dir.mkdirs();
+        String[] nombres = getAssets().list("piano");
+        if (nombres == null || nombres.length == 0) {
+            throw new IllegalStateException("la app no trae sonidos");
+        }
+        byte[] buf = new byte[256 * 1024];
+        for (int i = 0; i < nombres.length; i++) {
+            final int hecho = i + 1;
+            final int total = nombres.length;
+            ui.post(() -> estadoSonido.setText(
+                    "Preparando sonidos (solo la primera vez): " + hecho + " de " + total));
+            File destino = new File(dir, nombres[i]);
+            File tmp = new File(dir, nombres[i] + ".tmp");
+            try (InputStream in = getAssets().open("piano/" + nombres[i]);
+                 OutputStream out = new FileOutputStream(tmp)) {
+                int r;
+                while ((r = in.read(buf)) > 0) {
+                    out.write(buf, 0, r);
+                }
+            }
+            if (!tmp.renameTo(destino)) {
+                throw new IllegalStateException("no se pudo guardar " + nombres[i]);
+            }
+        }
+    }
+
+    // ---- MIDI -------------------------------------------------------------
 
     private static String nombre(MidiDeviceInfo info) {
         String n = info.getProperties().getString(MidiDeviceInfo.PROPERTY_NAME);
-        return (n != null ? n : "dispositivo MIDI")
-                + " (salidas=" + info.getOutputPortCount()
-                + ", entradas=" + info.getInputPortCount() + ")";
+        return n != null ? n : "dispositivo MIDI";
     }
 
-    private void actualizarEstado() {
+    private void actualizarMidi() {
         MidiDeviceInfo[] lista = midiManager.getDevices();
-        estado.setText(lista.length == 0
-                ? "Sin dispositivos MIDI. Conecta el piano por USB."
-                : "Dispositivos MIDI: " + lista.length + " - toca una tecla.");
+        estadoMidi.setText(lista.length == 0
+                ? "Piano: no conectado (conecta el cable USB)"
+                : "Piano: conectado (" + nombre(lista[0]) + ")");
     }
 
     private void abrir(MidiDeviceInfo info) {
-        // El teclado ENVIA datos al telefono por su puerto de salida.
         if (info.getOutputPortCount() == 0) {
-            return;
+            return; // el teclado ENVIA al telefono por su puerto de salida
         }
         midiManager.openDevice(info, device -> {
             if (device == null) {
@@ -134,46 +230,42 @@ public class MainActivity extends Activity {
         }, ui);
     }
 
-    /** Interpreta mensajes de canal (3 bytes). Ignora reloj y 'active sensing'. */
+    /** Mensajes de canal; el sonido se dispara antes de escribir en pantalla. */
     private void interpretar(byte[] d, int offset, int count) {
         int i = offset;
         int fin = offset + count;
         while (i < fin) {
-            int estadoByte = d[i] & 0xFF;
-            if (estadoByte >= 0xF8) { // tiempo real (reloj, active sensing...)
+            int st = d[i] & 0xFF;
+            if (st >= 0xF8 || st < 0x80) { // tiempo real o dato suelto
                 i++;
                 continue;
             }
-            if (estadoByte < 0x80) { // dato suelto sin estado: se omite
-                i++;
-                continue;
-            }
-            int tipo = estadoByte & 0xF0;
-            int canal = (estadoByte & 0x0F) + 1;
-            int largo = (tipo == 0xC0 || tipo == 0xD0) ? 2 : 3;
-            if (tipo == 0xF0) { // mensajes de sistema: se saltan hasta el siguiente estado
+            int tipo = st & 0xF0;
+            if (tipo == 0xF0) { // sistema: saltar
                 i++;
                 while (i < fin && (d[i] & 0x80) == 0) {
                     i++;
                 }
                 continue;
             }
+            int largo = (tipo == 0xC0 || tipo == 0xD0) ? 2 : 3;
             if (i + largo > fin) {
                 break;
             }
             int a = d[i + 1] & 0x7F;
             int b = largo == 3 ? d[i + 2] & 0x7F : 0;
-            String texto;
             if (tipo == 0x90 && b > 0) {
-                texto = "Nota ON  tecla=" + a + " fuerza=" + b + " canal=" + canal;
+                Native.nativeNoteOn(a, b);
+                agregar("ON  tecla=" + a + " fuerza=" + b);
             } else if (tipo == 0x80 || tipo == 0x90) {
-                texto = "Nota OFF tecla=" + a + " canal=" + canal;
+                Native.nativeNoteOff(a);
+                agregar("OFF tecla=" + a);
             } else if (tipo == 0xB0) {
-                texto = "Control cc=" + a + " valor=" + b + (a == 64 ? " (pedal)" : "");
-            } else {
-                texto = String.format("Mensaje 0x%02X %d %d", estadoByte, a, b);
+                Native.nativeControl(a, b);
+                if (a == 64) {
+                    agregar("pedal " + (b >= 64 ? "ABAJO" : "arriba") + " (" + b + ")");
+                }
             }
-            agregar(texto);
             i += largo;
         }
     }
@@ -194,9 +286,10 @@ public class MainActivity extends Activity {
         for (MidiOutputPort p : puertos) {
             try { p.close(); } catch (Exception ignorada) { }
         }
-        for (MidiDevice d : abiertos) {
-            try { d.close(); } catch (Exception ignorada) { }
+        for (MidiDevice dev : abiertos) {
+            try { dev.close(); } catch (Exception ignorada) { }
         }
+        Native.nativeStop();
         super.onDestroy();
     }
 }

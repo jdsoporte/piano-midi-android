@@ -1,10 +1,17 @@
 # piano-midi-android
 
 App Android gratuita para músicos: recibe MIDI por USB desde un teclado
-(probado en la práctica con Yamaha PSR-E373) y reproduce un sonido de piano
-de concierto en el celular.
+(probado con Yamaha PSR-E373) y reproduce un sonido de piano de concierto
+en el celular.
 
-Estado: en construcción (inicio del proyecto).
+Estado: etapa 2 (piano con sonido, versión liviana "B": 8 capas de intensidad).
+
+## Cómo se compila
+
+El APK se genera en GitHub Actions (workflow "Compilar APK"). Ese workflow
+descarga Salamander Grand Piano V3, convierte las muestras con
+`tools/convert_samples.py` y compila la app con Oboe. Las pruebas del motor
+(`tests/engine_test.cpp`) se ejecutan antes de compilar.
 
 ## Créditos de sonido
 
