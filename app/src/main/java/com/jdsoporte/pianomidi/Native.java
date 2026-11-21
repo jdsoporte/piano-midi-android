@@ -29,5 +29,29 @@ final class Native {
 
     static native void nativeControl(int cc, int value);
 
+    static native void nativePitchBend(int value14);
+
     static native void nativeSetVolume(float v);
+
+    /** Cantidad de reverb, 0..1. */
+    static native void nativeSetReverb(float mix);
+
+    /** Buffer de audio en rafagas: 2 = menor latencia, 4 = mas seguro. */
+    static native void nativeSetLatency(int bursts);
+
+    /** 0 = piano de concierto (Salamander), 1 = SoundFont. */
+    static native void nativeSetMode(int mode);
+
+    /** Carga un .sf2 (lento, no usar el hilo de la pantalla). */
+    static native boolean nativeSfLoad(String path);
+
+    static native boolean nativeSfLoaded();
+
+    /** Cada elemento: "indice|banco|programa|nombre". */
+    static native String[] nativeSfPresets();
+
+    /** Indice del preset (banco, programa) o -1. */
+    static native int nativeSfFindPreset(int bank, int program);
+
+    static native void nativeSfSelect(int presetIndex);
 }

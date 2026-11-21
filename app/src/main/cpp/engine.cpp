@@ -40,19 +40,6 @@ constexpr float kSilence = 1.0e-4f;  // -80 dB
 // no se atenuan aqui; el limitador suave de salida evita pasar de 1.0.
 constexpr float kVoiceGain = 1.0f / 32768.f;
 
-// Limitador suave: lineal hasta 'kKnee' y despues curva que nunca pasa de 'kCeiling'
-// (-1.4 dBFS). Deja margen para que el amplificador del celular y la entrada del piano
-// no se saturen con notas fuertes.
-constexpr float kKnee = 0.55f;
-constexpr float kCeiling = 0.85f;
-
-inline float softClip(float x) {
-    float a = std::fabs(x);
-    if (a <= kKnee) return x;
-    float y = kKnee + (kCeiling - kKnee) * std::tanh((a - kKnee) / (kCeiling - kKnee));
-    return x < 0 ? -y : y;
-}
-
 }  // namespace
 
 Engine::Engine() {
@@ -186,6 +173,7 @@ void Engine::doControl(int cc, int value) {
         }
     } else if (cc == 120) {  // todo el sonido off
         for (Voice& v : voices_) v.active = false;
+        pedalDown_ = false;
     }
 }
 
@@ -254,7 +242,6 @@ void Engine::render(float* out, int frames) {
     tail_.store(t, std::memory_order_release);
 
     // 2) mezcla por bloques
-    const float vol = volume_.load(std::memory_order_relaxed);
     int done = 0;
     while (done < frames) {
         int n = std::min(frames - done, 8192);
@@ -262,16 +249,7 @@ void Engine::render(float* out, int frames) {
         for (Voice& v : voices_) {
             if (v.active) renderVoice(v, mix_, n);
         }
-        float* o = out + 2 * done;
-        float blockPeak = 0.f;
-        for (int i = 0; i < 2 * n; ++i) {
-            float y = softClip(mix_[i] * vol);
-            o[i] = y;
-            blockPeak = std::max(blockPeak, std::fabs(y));
-        }
-        if (blockPeak > peak_.load(std::memory_order_relaxed)) {
-            peak_.store(blockPeak, std::memory_order_relaxed);
-        }
+        std::memcpy(out + 2 * done, mix_, sizeof(float) * 2 * n);
         done += n;
     }
 }

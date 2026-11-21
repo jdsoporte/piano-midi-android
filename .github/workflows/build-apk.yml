@@ -15,7 +15,8 @@ jobs:
       - name: Compilar y correr pruebas
         run: |
           g++ -std=c++17 -O2 -Wall -Wextra -fsanitize=address,undefined \
-            -o engine_test tests/engine_test.cpp app/src/main/cpp/engine.cpp
+            -o engine_test tests/engine_test.cpp app/src/main/cpp/engine.cpp \
+            app/src/main/cpp/master.cpp app/src/main/cpp/sf_engine.cpp
           ./engine_test
   build:
     name: Compilar APK
@@ -36,6 +37,15 @@ jobs:
           git clone --depth 1 https://github.com/sfzinstruments/SalamanderGrandPiano "$RUNNER_TEMP/salamander"
           python3 tools/convert_samples.py "$RUNNER_TEMP/salamander/Samples" app/src/main/assets/piano
           du -sh app/src/main/assets/piano
+      - name: Preparar FluidR3 GM (licencia MIT, paquete fluid-soundfont-gm de Ubuntu)
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq fluid-soundfont-gm
+          grep -q "MIT license" /usr/share/doc/fluid-soundfont-gm/copyright
+          grep -n "MIT license" /usr/share/doc/fluid-soundfont-gm/copyright
+          mkdir -p app/src/main/assets/sf2
+          cp /usr/share/sounds/sf2/FluidR3_GM.sf2 app/src/main/assets/sf2/FluidR3_GM.sf2
+          ls -l app/src/main/assets/sf2
       - name: Compilar APK (debug)
         run: gradle --no-daemon :app:assembleDebug
       - name: Tamaño del APK

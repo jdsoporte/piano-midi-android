@@ -47,15 +47,12 @@ public:
     void noteOn(int key, int vel);
     void noteOff(int key);
     void controlChange(int cc, int value);
-    void setVolume(float v) { volume_.store(v, std::memory_order_relaxed); }
 
-    // Hilo de audio: escribe 'frames' cuadros estereo intercalados en float.
+    // Hilo de audio: escribe 'frames' cuadros estereo intercalados en float
+    // (sin volumen ni limitador: eso lo hace Master).
     void render(float* out, int frames);
 
     int activeVoices() const;
-
-    // Pico de salida desde la ultima llamada (0..1). Para el medidor de la pantalla.
-    float takePeak() { return peak_.exchange(0.f, std::memory_order_relaxed); }
 
 private:
     struct Voice {
@@ -92,8 +89,6 @@ private:
 
     const SampleBank* bank_ = nullptr;
     float sampleRate_ = 48000.f;
-    std::atomic<float> volume_{1.5f};
-    std::atomic<float> peak_{0.f};
 
     Voice voices_[kMaxVoices];
     bool pedalDown_ = false;
