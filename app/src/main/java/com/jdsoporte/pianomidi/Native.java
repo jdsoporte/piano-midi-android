@@ -17,6 +17,12 @@ final class Native {
 
     static native String nativeInfo();
 
+    /** Cortes de audio (underruns) desde que abrio el flujo; -1 si no se sabe. */
+    static native int nativeXRuns();
+
+    /** Pico de salida (0..1) desde la ultima consulta. */
+    static native float nativePeak();
+
     static native void nativeNoteOn(int key, int vel);
 
     static native void nativeNoteOff(int key);

@@ -41,6 +41,8 @@ public class MainActivity extends Activity {
     private TextView estadoSonido;
     private TextView estadoMidi;
     private TextView infoAudio;
+    private TextView medidor;
+    private float picoVisto = 0f;
     private TextView registro;
     private ScrollView scroll;
     private volatile boolean audioListo = false;
@@ -63,6 +65,7 @@ public class MainActivity extends Activity {
         estadoSonido = texto(raiz, 15, p / 2);
         estadoMidi = texto(raiz, 15, p / 4);
         infoAudio = texto(raiz, 12, p / 4);
+        medidor = texto(raiz, 13, p / 4);
 
         TextView vol = texto(raiz, 14, p / 2);
         vol.setText("Volumen del piano (si suena bajo, sube tambien el volumen multimedia del celular)");
@@ -157,11 +160,24 @@ public class MainActivity extends Activity {
             ui.post(() -> {
                 estadoSonido.setText("Piano listo (" + cargadas + " grabaciones). Toca el piano.");
                 infoAudio.setText(Native.nativeInfo());
+                actualizarMedidor();
             });
         } catch (Exception e) {
             final String msg = e.toString();
             ui.post(() -> estadoSonido.setText("ERROR: " + msg));
         }
+    }
+
+    /** Muestra el pico de salida y los cortes de audio, cada medio segundo. */
+    private void actualizarMedidor() {
+        float p = Native.nativePeak();
+        picoVisto = Math.max(p, picoVisto * 0.9f);
+        int xr = Native.nativeXRuns();
+        String nivel = picoVisto >= 0.84f ? "  << NIVEL ALTO (limitando)" : "";
+        medidor.setText(String.format(java.util.Locale.US,
+                "Nivel de salida: %.2f (max 0.85)%s\nCortes de audio: %s",
+                picoVisto, nivel, xr < 0 ? "?" : String.valueOf(xr)));
+        ui.postDelayed(this::actualizarMedidor, 500);
     }
 
     private void copiarSonidos(File dir) throws Exception {

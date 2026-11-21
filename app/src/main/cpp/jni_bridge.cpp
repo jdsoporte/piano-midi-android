@@ -92,6 +92,13 @@ public:
         }
     }
 
+    int xruns() {
+        std::lock_guard<std::mutex> lock(mutex_);
+        if (!stream_) return -1;
+        auto r = stream_->getXRunCount();
+        return r ? r.value() : -1;
+    }
+
     std::string info() {
         std::lock_guard<std::mutex> lock(mutex_);
         if (!stream_) return "audio detenido";
@@ -142,8 +149,8 @@ private:
             return false;
         }
         g_engine.setSampleRate((float)stream_->getSampleRate());
-        // Buffer pequeno (2 rafagas) para baja latencia.
-        stream_->setBufferSizeInFrames(stream_->getFramesPerBurst() * 2);
+        // Buffer de 4 rafagas: margen contra cortes de audio en celulares modestos.
+        stream_->setBufferSizeInFrames(stream_->getFramesPerBurst() * 4);
         r = stream_->requestStart();
         if (r != oboe::Result::OK) {
             LOGE("no se pudo iniciar el audio: %s", oboe::convertToText(r));
@@ -186,6 +193,16 @@ Java_com_jdsoporte_pianomidi_Native_nativeStop(JNIEnv*, jclass) {
 JNIEXPORT jstring JNICALL
 Java_com_jdsoporte_pianomidi_Native_nativeInfo(JNIEnv* env, jclass) {
     return env->NewStringUTF(g_audio.info().c_str());
+}
+
+JNIEXPORT jint JNICALL
+Java_com_jdsoporte_pianomidi_Native_nativeXRuns(JNIEnv*, jclass) {
+    return g_audio.xruns();
+}
+
+JNIEXPORT jfloat JNICALL
+Java_com_jdsoporte_pianomidi_Native_nativePeak(JNIEnv*, jclass) {
+    return g_engine.takePeak();
 }
 
 JNIEXPORT void JNICALL

@@ -144,7 +144,8 @@ int main() {
         pico = std::max(pico, std::fabs(x));
     }
     CHECK(ok, "salida sin NaN ni infinitos con 200 notas");
-    CHECK(pico <= 1.0f, "el limitador evita pasar de 1.0");
+    CHECK(pico <= 0.851f, "el limitador evita pasar de 0.85 (-1.4 dBFS)");
+    CHECK(e.takePeak() > 0.5f && e.takePeak() == 0.f, "el medidor de pico reporta y se reinicia");
     CHECK(e.activeVoices() <= kMaxVoices, "maximo 64 voces");
 
     // rendimiento: 64 voces durante 10 s de audio

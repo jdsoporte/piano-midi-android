@@ -54,6 +54,9 @@ public:
 
     int activeVoices() const;
 
+    // Pico de salida desde la ultima llamada (0..1). Para el medidor de la pantalla.
+    float takePeak() { return peak_.exchange(0.f, std::memory_order_relaxed); }
+
 private:
     struct Voice {
         const int16_t* data = nullptr;
@@ -90,6 +93,7 @@ private:
     const SampleBank* bank_ = nullptr;
     float sampleRate_ = 48000.f;
     std::atomic<float> volume_{1.5f};
+    std::atomic<float> peak_{0.f};
 
     Voice voices_[kMaxVoices];
     bool pedalDown_ = false;
